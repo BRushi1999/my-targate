@@ -1,0 +1,67 @@
+name: Mirror to Target Repo (SSH deploy key)
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (full)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "mirror-bot"
+          git config --global user.email "mirror@users.noreply.github.com"
+
+      - name: Prepare SSH key (write from secret)
+        env:
+          TARGET_SSH_KEY: ${{ secrets.TARGET_SSH_KEY }}
+        run: |
+          if [ -z "$TARGET_SSH_KEY" ]; then
+            echo "Missing TARGET_SSH_KEY secret" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$TARGET_SSH_KEY" > ~/.ssh/mirror_deploy_key
+          chmod 600 ~/.ssh/mirror_deploy_key
+
+      - name: Start ssh-agent and add key
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/mirror_deploy_key || true
+          echo "Keys in agent:"
+          ssh-add -l || true
+
+      - name: Add GitHub known host entry
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 644 ~/.ssh/known_hosts
+          echo "known_hosts prepared"
+
+      - name: Verify SSH auth and push using GIT_SSH_COMMAND
+        env:
+          TARGET_REPO_SSH: "git@github.com:BRushi1999/my-targate.git"
+        run: |
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/mirror_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=~/.ssh/known_hosts -o BatchMode=yes"
+
+          echo "Testing SSH connection (non-interactive):"
+          ssh -i ~/.ssh/mirror_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes git@github.com 2>&1 | sed -n '1,120p' || true
+
+          git remote remove target || true
+          git remote add target "${TARGET_REPO_SSH}"
+
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Pushing branch ${BRANCH} to ${TARGET_REPO_SSH} using deploy key..."
+          git push target HEAD:refs/heads/${BRANCH} --force
+
+          echo "Pushing tags..."
+          git push target --tags || true
