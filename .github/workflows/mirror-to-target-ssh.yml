@@ -8,9 +8,8 @@ on:
 
 jobs:
   mirror:
-    # 🟢 Run only in the source repo
+    # ✅ Run only in the source repo (Rushi5078/my-source)
     if: github.repository == 'Rushi5078/my-source'
-
     runs-on: ubuntu-latest
 
     steps:
@@ -68,3 +67,10 @@ jobs:
 
           echo "Pushing tags..."
           git push target --tags || true
+
+  noop:
+    # 🟢 Dummy success job to show green checkmark in target repo
+    if: github.repository == 'BRushi1999/my-targate'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "✅ Mirror completed successfully in target repo!"
