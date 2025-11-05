@@ -8,6 +8,9 @@ on:
 
 jobs:
   mirror:
+    # 🟢 Run only in the source repo
+    if: github.repository == 'Rushi5078/my-source'
+
     runs-on: ubuntu-latest
 
     steps:
@@ -30,13 +33,13 @@ jobs:
             exit 1
           fi
           mkdir -p ~/.ssh
-          printf '%s\n' "$TARGET_SSH_KEY" > ~/.ssh/mirror_deploy_key
-          chmod 600 ~/.ssh/mirror_deploy_key
+          printf '%s\n' "$TARGET_SSH_KEY" > ~/.ssh/mirror_quadroid_key
+          chmod 600 ~/.ssh/mirror_quadroid_key
 
       - name: Start ssh-agent and add key
         run: |
           eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/mirror_deploy_key || true
+          ssh-add ~/.ssh/mirror_quadroid_key || true
           echo "Keys in agent:"
           ssh-add -l || true
 
@@ -51,10 +54,10 @@ jobs:
         env:
           TARGET_REPO_SSH: "git@github.com:BRushi1999/my-targate.git"
         run: |
-          export GIT_SSH_COMMAND="ssh -i ~/.ssh/mirror_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=~/.ssh/known_hosts -o BatchMode=yes"
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/mirror_quadroid_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=~/.ssh/known_hosts -o BatchMode=yes"
 
           echo "Testing SSH connection (non-interactive):"
-          ssh -i ~/.ssh/mirror_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes git@github.com 2>&1 | sed -n '1,120p' || true
+          ssh -i ~/.ssh/mirror_quadroid_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o BatchMode=yes git@github.com 2>&1 | sed -n '1,120p' || true
 
           git remote remove target || true
           git remote add target "${TARGET_REPO_SSH}"
